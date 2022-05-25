@@ -1,0 +1,23 @@
+
+PPO:
+difference from VPG is pi/pi_old + clip + min
+
+buffer (obs, act, adv, rew, logp, return, value)
+	store (next step)
+	finish (calculation of discounted rewards and advantage estimates)
+	get (gives these calculated values to however needs them) -> data
+
+compute_loss_pi/v(data) -> loss
+
+actor-critic (obs /+ action -> action_pi, logprob,
+		value function v(obs)
+
+
+---------------------
+
+get experiences - loop through
+ and store in buffer
+
+once done update:
+	-find losses on pi and update
+	-find losses on v and update
