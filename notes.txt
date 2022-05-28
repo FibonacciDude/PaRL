@@ -32,7 +32,7 @@ multiprocessing:
 			-stop your local processes until further notice
 			-for each process, they all add 
 			*(instead of adds, you can put global changes to a queue, and pop in master)
-			alpha * (x-x_bar) - v to the shared "upd_tensor" [WRITE]
+			alpha * (x-x_bar) = v to the shared "upd_tensor" [WRITE]
 
 			-after the process adds, it changes local to subtract v
 

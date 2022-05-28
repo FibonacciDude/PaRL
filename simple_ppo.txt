@@ -1,11 +1,17 @@
+Config:
+	fiddle, ml-collection
 
 PPO:
 difference from VPG is pi/pi_old + clip + min
 
+Add seed that works
+
 buffer (obs, act, adv, rew, logp, return, value)
 	store (next step)
 	finish (calculation of discounted rewards and advantage estimates)
-	get (gives these calculated values to however needs them) -> data
+	get (gives these calculated values to however needs them) -> data dict
+
+	max buffer size (gets filled and loops around with ptr)	
 
 compute_loss_pi/v(data) -> loss
 
@@ -13,11 +19,30 @@ actor-critic (obs /+ action -> action_pi, logprob,
 		value function v(obs)
 
 
+effect of mini-batch (do we need parallel if not)
+	-the network is updated for the entire set of losses
+		random sample
+
 ---------------------
+update()
+	-find losses on v, and pi for logging
 
-get experiences - loop through
- and store in buffer
+	for pi_iters:
+		-find losses on pi and update (step)
+	for v_iters:
+		-find losses on v and update (step)
 
-once done update:
-	-find losses on pi and update
-	-find losses on v and update
+reset_env()
+for epochs:
+	for local_steps:
+		get experiences - 
+			tup -> step
+			buf.store
+			change obs
+		until over
+			reset env
+			finish experiences (either put in 0 if over or bootstrap)
+			(what if still looping when end?)
+
+	update()
+
