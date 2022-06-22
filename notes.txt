@@ -23,7 +23,7 @@ multiprocessing:
 
 	I'll try EASGD for now as the averaging scheme seems somewhat unstable.
 
-	What should be used for gradient descent (delta) given model theta. 
+	What should be used for gradient descent (delta) given model theta.
 
 
 	
