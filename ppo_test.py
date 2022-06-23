@@ -4,15 +4,11 @@ import ppo, rollout
 import ac as models 
 import core
 import torch
+from gym import envs
 
-envs_ = [
-        'CartPole-v1',
-        'Pendulum-v1',
-        'HalfCheetah-v3',
-        'Hopper-v3'
-        'Ant-v3',
-        ]
-
+all_envs = envs.registry.all()
+envs_ = sorted([env_spec.id for env_spec in all_envs])
+print(envs_)
 # TODO
 # weird bug, always getting 1 reward and the model's random behavior wins
 
@@ -24,25 +20,25 @@ def run(epochs=100, env_idx=0):
     categorical = isinstance(env.action_space, gym.spaces.Discrete)
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n if categorical else env.action_space.shape[0]
-    print("categorical", categorical)
+    print("Categorical action space:", categorical)
     ac = models.MLPAC(state_dim, action_dim, categorical)
 
-    pi_lr = 1e-3
+    pi_lr = 4e-4
     vf_lr = 1e-3
     pi_optim = torch.optim.Adam(ac.actor.parameters(), lr=pi_lr)
     vf_optim = torch.optim.Adam(ac.critic.parameters(), lr=vf_lr)
 
     for e in range(epochs):
-        print("Epoch %d:" % e)
+        print("Epoch %d" % e)
         # get trajectory
-        traj = rollout.rollout(ac, env)
+        traj = rollout.rollout(ac, env, max_len=1000)
         # update
-        ppo.ppo_clip(ac, traj, pi_optim, vf_optim)
+        ppo.ppo_clip(ac, traj, pi_optim, vf_optim, targ_kl=0.01)
 
-        if e % 10 == 0:
+        if (e!=0 and e % 10 == 0) or e==epochs-1:
             print("Validating...")
             rewards = core.validate(ac, env)
-            print("Reward mean: {:.4f}, Reward std: {:.4f}".format(rewards.mean(), rewards.std()))
+            print("Reward sum: {:.4f}".format(rewards.sum()))
 
 if __name__ == "__main__":
-    run(epochs=20)
+    run(epochs=40, env_idx=envs_.index("Ant-v3"))

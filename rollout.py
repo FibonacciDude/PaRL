@@ -30,7 +30,7 @@ def rollout(ac, env, steps=5000, max_len=1000):
             if epoch_ended and not(terminal):
                 print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
             # boostrap
-            v = ac.predict(o) if (timeout or epoch_ended) else 0
+            v = ac.predict(o,detach=True) if (timeout or epoch_ended) else 0
 
             obs = np.array(obs)
             rew = np.append(rew, v)
