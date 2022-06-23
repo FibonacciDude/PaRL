@@ -36,8 +36,5 @@ def rollout(ac, env, steps=5000, max_len=1000):
             rew = np.append(rew, v)
             val = np.append(val, v)
             # logp only one that isn't numpy (tensor)
-            logps = torch.tensor(logps, device=ac.device)
-
-            env.reset(seed=42)
-
+            logps = torch.stack(logps)
             return dict(obs=obs, act=act, rew=rew, value=val, logp=logps)

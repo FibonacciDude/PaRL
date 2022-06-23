@@ -30,8 +30,8 @@ class Actor(nn.Module):
 
     def pi(self, obs):
         xx = self._get_distr(obs)
-        act = xx.sample()
-        logp = xx.log_prob(act)
+        act = xx.sample().detach()
+        logp = xx.log_prob(act).detach()
         return act, logp
 
     def logprob(self, obs, act):
@@ -61,18 +61,22 @@ class MLPAC(nn.Module):
         self.critic = Critic(state_dim, action_dim, categorical, hidden_dim=hidden_dim)
         self.device = torch.device(device)
         self.to(self.device)
+        self.to(torch.float32)
+
+    def to_torch(self, obs):
+      return torch.from_numpy(obs).to(self.device).to(torch.float32)
 
     def step(self, obs):
-        obs = torch.from_numpy(obs).to(self.device)
+        obs = self.to_torch(obs)
         action, logp = self.actor.pi(obs)
-        v = self.critic.predict(obs)
-        return action, v.detach().cpu().numpy(), logp
+        v = self.critic.predict(obs, detach=True)
+        return action, v, logp
 
     def logprob(self, obs, act):
-        obs = torch.from_numpy(obs).to(self.device)
-        act = torch.tensor(act).to(self.device)
+        obs = self.to_torch(obs)
+        act = torch.stack(act).to(self.device) # list
         return self.actor.logprob(obs, act)
     
     def predict(self, obs, detach=False):
-        obs = torch.from_numpy(obs).to(self.device)
+        obs = self.to_torch(obs)
         return self.critic.predict(obs, detach=detach)

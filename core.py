@@ -6,27 +6,29 @@ def discount(x, disc):
     return y[::-1]
 
 # modular rl
-def gae(path, gamma, lam):
-    # ret, value, adv
-    path["ret"] = discount(path["rew"], gamma)
+def gae(paths, gamma, lam):
+    for path in paths:
+      path["ret"] = discount(path["rew"], gamma)
+      bln = path["value"]
+      td = path["rew"][:-1] + gamma*bln[1:] - bln[:-1]
+      path["adv"] = discount(td, gamma*lam)
+    #alladv = np.array([path["adv"] for path in paths])
+    #mean, std = alladv.mean(), alladv.std()
+    for path in paths:
+      mean, std = path["adv"].mean(), path["adv"].std()
+      path["adv"] = (path["adv"] - mean) / std
 
-    bln = path["value"]
-    td = path["rew"][:-1] + gamma*bln[1:] - bln[:-1]
-    path["adv"] = discount(td, gamma*lam)
+    # TODO: check/understand effect of normalization (on only one trajectory)
+    # normalize - correct?
 
-    # normalize
-    mean, std = path["adv"].mean(), path["adv"].std()
-    path["adv"] = (path["adv"] - mean) / std
-
-def validate(ac, env, timeout=500):
+def validate(ac, env, timeout=500, render=True):
     o = env.reset(seed=42)
     rews = []
     for _ in range(timeout):
-        env.render()
+        if render: env.render()
         act, v, logp = ac.step(o)
         o, r, done, info = env.step(act.detach().cpu().numpy())
         rews.append(r)
-        if done:
-            break
+        if done: break
     env.reset(seed=42)
     return np.array(rews)
