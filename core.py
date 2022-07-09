@@ -55,7 +55,7 @@ def gae(path, gamma, lam):
     bln = path["value"]
     td = path["rew"][:-1] + gamma*bln[1:] - bln[:-1]
     adv = path["adv"] = discount(td, gamma*lam)
-    # TODO: check/understand effect of normalization (on only one trajectory)
+    # TODO: check/understand effect of normalization
     mean, std = mpi_statistics_scalar(adv)
     path["adv"] = (path["adv"] - mean) / std
 
@@ -68,10 +68,8 @@ def validate(ac, env_name, timeout=500, render=True):
         act, v, logp = ac.step(o)
         o, r, done, info = env.step(act.detach().cpu().numpy())
         rews.append(r)
-        if render:
-          env.render()
-        if done:
-          break
+        if render: env.render()
+        if done: break
     env.reset()
     env.close()
     return np.array(rews)

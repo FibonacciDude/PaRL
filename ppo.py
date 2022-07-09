@@ -10,7 +10,7 @@ import torchviz as tv
 # add logger
 # add mpi (for gradients) - parallel rather than sequential
 
-def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.003, eps=.2, gamma=.99, lam=.95):
+def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01, eps=.2, gamma=.99, lam=.95):
 
     core.gae(traj, gamma, lam)
     sync_params(ac)
@@ -30,26 +30,31 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.00
         return loss, approx_kl
 
     def vf_loss(ac, traj):
-        ret = torch.tensor(traj['ret'].copy(), device=ac.device)
+        ret = torch.tensor(traj['ret'][:-1].copy(), device=ac.device)
         loss = .5 * (ac.predict(traj['obs']) - ret)**2
         return loss.mean()
 
+    pi_old, kl_old = pi_loss(ac, traj)
     for _ in range(pi_iters):
         pi_optim.zero_grad()
-        loss, pi_kl = pi_loss(ac, traj)
+        loss_a, pi_kl = pi_loss(ac, traj)
         pi_kl = mpi_avg(pi_kl)
         if pi_kl > 1.5 * targ_kl:
             # print("Finished due to too great of a KL %d" % _) # put this in log
             break
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(ac.actor.parameters(), .5)
+        loss_a.backward()
         mpi_avg_grads(ac.actor)
         pi_optim.step()
 
+    vf_old = vf_loss(ac, traj)
     for _ in range(vf_iters):
         vf_optim.zero_grad()
-        loss = vf_loss(ac, traj)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(ac.critic.parameters(), .5)
+        loss_c = vf_loss(ac, traj)
+        loss_c.backward()
         mpi_avg_grads(ac.critic)
         vf_optim.step()
+    
+    if proc_id()==0:
+      with torch.no_grad():
+        print('actor delta', (pi_old - loss_a).item())
+        print('critic delta', (vf_old - loss_c).item())

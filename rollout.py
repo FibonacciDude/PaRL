@@ -3,7 +3,7 @@ import numpy as np
 import gym
 from mpi_tools import *
 
-# spinning up
+# code similar to that of spinningup
 def rollout(ac, env, steps=5000, max_len=1000):
     o = env.reset()
     obs, act, rew, val, logps = [], [], [], [], []
@@ -12,7 +12,7 @@ def rollout(ac, env, steps=5000, max_len=1000):
     for t in range(local_steps):
         a, v, logp = ac.step(o)
 
-        next_o, r, d, _ = env.step(a.detach().cpu().numpy())
+        next_o, r, d, _ = env.step(a.cpu().numpy())
         ep_len += 1
 
         # save

@@ -26,14 +26,15 @@ def run(epochs=100, env_idx=0):
     categorical = isinstance(env.action_space, gym.spaces.Discrete)
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n if categorical else env.action_space.shape[0]
+
     ac = models.MLPAC(state_dim, action_dim, categorical, hidden_dim=args.hidden_dim, device="cpu")
 
     pi_lr = args.pi_lr
     vf_lr = args.vf_lr
-    #pi_optim = torch.optim.Adam(ac.actor.parameters(), lr=pi_lr, eps=1e-5)
-    #vf_optim = torch.optim.Adam(ac.critic.parameters(), lr=vf_lr, eps=1e-5)
-    pi_optim = torch.optim.SGD(ac.actor.parameters(), lr=pi_lr, momentum=.9, nesterov=True)
-    vf_optim = torch.optim.SGD(ac.critic.parameters(), lr=vf_lr, momentum=.9, nesterov=True)
+    pi_optim = torch.optim.Adam(ac.actor.parameters(), lr=pi_lr, eps=1e-5)
+    vf_optim = torch.optim.Adam(ac.critic.parameters(), lr=vf_lr, eps=1e-5)
+    #pi_optim = torch.optim.SGD(ac.actor.parameters(), lr=pi_lr, momentum=.9, nesterov=True)
+    #vf_optim = torch.optim.SGD(ac.critic.parameters(), lr=vf_lr, momentum=.9, nesterov=True)
 
     total_steps = 0
     for e in range(epochs):
@@ -52,14 +53,13 @@ def run(epochs=100, env_idx=0):
         lam=args.lam
         )
 
+        #logger.store(epoch=e, ret_traj=traj["rew"].sum(), total_steps=mpi_sum(total_steps))
+        #logger.log("epoch", mean=False)
+        #logger.log("total_steps", mean=False)
+        #logger.log("ret_traj", with_min_max=True)
+        #logger.dump()
 
-        logger.store(epoch=e, ret_traj=traj["rew"].sum(), total_steps=mpi_sum(total_steps))
-        logger.log("epoch", mean=False)
-        logger.log("total_steps", mean=False)
-        logger.log("ret_traj", with_min_max=True)
-        logger.dump()
-
-        if (e % args.val_every == 0 or e==epochs-1) and e!=0: 
+        if (e % args.val_every == 0 or e==epochs-1): 
             reward = core.validate(ac, env_name, render=args.render if proc_id()==0 else False).sum()
             logger.store(ret_traj=reward)
             logger.log("ret_traj", with_min_max=True)
