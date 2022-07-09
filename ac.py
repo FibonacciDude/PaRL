@@ -8,8 +8,9 @@ class Actor(nn.Module):
         super(Actor, self).__init__()
         self.actor_mlp = nn.Sequential(
                 nn.Linear(state_dim, hidden_dim),
+                nn.ReLU(),
                 nn.Linear(hidden_dim, hidden_dim),
-                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
                 )
         self.categorical = categorical
         if categorical:
@@ -18,14 +19,15 @@ class Actor(nn.Module):
                     nn.Softmax(dim=-1))
         else:
             self.mean = nn.Linear(hidden_dim, action_dim)
-            self.logvar = nn.Linear(hidden_dim, action_dim)
+            # as parameter, not based on nn
+            self.log_std = torch.nn.Parameter(  torch.as_tensor(-.5*np.ones(action_dim, dtype=np.float32))  )
 
     def _get_distr(self, obs):
       scores = self.actor_mlp(obs)
       if self.categorical:
         xx = dist.Categorical(self.head(scores))
       else:
-        xx = dist.Normal(self.mean(scores), self.logvar(scores).mul(.5).exp())
+        xx = dist.Normal(self.mean(scores), self.log_std.exp())
       return xx
 
     def pi(self, obs):
@@ -44,7 +46,9 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
         self.critic_mlp = nn.Sequential(
                 nn.Linear(state_dim, hidden_dim),
-                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                #nn.Linear(hidden_dim, hidden_dim),
+                #nn.ReLU(),
                 nn.Linear(hidden_dim, 1),
                 )
 

@@ -4,6 +4,8 @@ import torch
 import mpi4py as MPI
 from mpi_tools import *
 
+import torchviz as tv
+
 # TODO
 # add logger
 # add mpi (for gradients) - parallel rather than sequential
@@ -19,6 +21,7 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.00
         adv = torch.tensor(adv.copy(), device=ac.device)
 
         logp = ac.logprob(obs, act)
+
         log_ratio = logp - logp_old
         ratio = torch.exp(log_ratio)
         clip_adv = (ratio*adv.reshape(-1,1)).clamp(min=1-eps, max=1+eps)
@@ -33,7 +36,6 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.00
 
     for _ in range(pi_iters):
         pi_optim.zero_grad()
-        # average losses on trajectories
         loss, pi_kl = pi_loss(ac, traj)
         pi_kl = mpi_avg(pi_kl)
         if pi_kl > 1.5 * targ_kl:
