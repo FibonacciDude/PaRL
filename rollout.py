@@ -1,13 +1,15 @@
 import torch
 import numpy as np
 import gym
+from mpi_tools import *
 
 # spinning up
 def rollout(ac, env, steps=5000, max_len=1000):
-    o = env.reset(seed=42)
+    o = env.reset()
     obs, act, rew, val, logps = [], [], [], [], []
     ep_len = 0
-    for t in range(steps):
+    local_steps = int(steps / num_procs())
+    for t in range(local_steps):
         a, v, logp = ac.step(o)
 
         next_o, r, d, _ = env.step(a.detach().cpu().numpy())
@@ -25,10 +27,11 @@ def rollout(ac, env, steps=5000, max_len=1000):
 
         timeout = (ep_len == max_len)
         terminal = d or timeout
-        epoch_ended = t==(steps-1)
+        epoch_ended = t==(local_steps-1)
         if terminal or epoch_ended:
             if epoch_ended and not(terminal):
-                print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
+                #print('Warning: trajectory cut off by epoch at %d steps.'%ep_len, flush=True)
+                pass
             # boostrap
             v = ac.predict(o,detach=True) if (timeout or epoch_ended) else 0
 
@@ -37,4 +40,4 @@ def rollout(ac, env, steps=5000, max_len=1000):
             val = np.append(val, v)
             # logp only one that isn't numpy (tensor)
             logps = torch.stack(logps)
-            return dict(obs=obs, act=act, rew=rew, value=val, logp=logps)
+            return dict(obs=obs, act=act, rew=rew, value=val, logp=logps), t
