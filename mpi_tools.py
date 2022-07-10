@@ -108,6 +108,16 @@ def mpi_avg_grads(module):
         avg_p_grad = mpi_avg(p.grad)
         p_grad_numpy[:] = avg_p_grad[:]
 
+def mpi_avg_params(module):
+    """ Average contents of parameter buffers across MPI processes. """
+    if num_procs()==1:
+        return
+    for p in module.parameters():
+        p_numpy = p.data.numpy()
+        avg_p = mpi_avg(p.data)
+        # all the elements in the array become a copy of the other (not the reference)
+        p_numpy[:] = avg_p[:]
+
 def sync_params(module):
     """ Sync all parameters of module across all MPI processes. """
     if num_procs()==1:

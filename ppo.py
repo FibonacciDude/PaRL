@@ -3,17 +3,13 @@ import numpy as np
 import torch
 import mpi4py as MPI
 from mpi_tools import *
-
 import torchviz as tv
 
-# TODO
-# add logger
-# add mpi (for gradients) - parallel rather than sequential
-
-def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01, eps=.2, gamma=.99, lam=.95):
+def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01, eps=.2, gamma=.99, lam=.95, avg_grad=True):
 
     core.gae(traj, gamma, lam)
-    sync_params(ac)
+    if avg_grad:
+      sync_params(ac)
 
     # TODO: why .copy() error (negative stride)
     def pi_loss(ac, traj):
@@ -38,12 +34,14 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01
     for _ in range(pi_iters):
         pi_optim.zero_grad()
         loss_a, pi_kl = pi_loss(ac, traj)
-        pi_kl = mpi_avg(pi_kl)
+        if avg_grad:
+          pi_kl = mpi_avg(pi_kl)
         if pi_kl > 1.5 * targ_kl:
             # print("Finished due to too great of a KL %d" % _) # put this in log
             break
         loss_a.backward()
-        mpi_avg_grads(ac.actor)
+        if avg_grad:
+          mpi_avg_grads(ac.actor)
         pi_optim.step()
 
     vf_old = vf_loss(ac, traj)
@@ -51,10 +49,6 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01
         vf_optim.zero_grad()
         loss_c = vf_loss(ac, traj)
         loss_c.backward()
-        mpi_avg_grads(ac.critic)
+        if avg_grad:
+          mpi_avg_grads(ac.critic)
         vf_optim.step()
-    
-    if proc_id()==0:
-      with torch.no_grad():
-        print('actor delta', (pi_old - loss_a).item())
-        print('critic delta', (vf_old - loss_c).item())
