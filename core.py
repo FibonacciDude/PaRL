@@ -50,18 +50,21 @@ def discount(x, disc):
     y = signal.lfilter([1], [1, -float(disc)], x=x[::-1])
     return y[::-1]
 
-def gae(path, gamma, lam):
+def gae(path, gamma, lam, avg_grad):
     path["ret"] = discount(path["rew"], gamma)
     bln = path["value"]
     td = path["rew"][:-1] + gamma*bln[1:] - bln[:-1]
     adv = path["adv"] = discount(td, gamma*lam)
-    # TODO: check/understand effect of normalization
-    mean, std = mpi_statistics_scalar(adv)
+    # TODO: check/understand effect of normalization (empirically/theoretically)
+    if avg_grad:
+      mean, std = mpi_statistics_scalar(adv)
+    else:
+      mean, std = adv.mean(), adv.std()
     path["adv"] = (path["adv"] - mean) / std
 
-def validate(ac, env_name, timeout=500, render=True):
+def validate(ac, env_name, timeout=500, render=True, seed=42):
     env = gym.make(env_name)
-    o = env.reset()
+    o = env.reset(seed=seed)
     rews = []
     done = False
     for _ in range(timeout):

@@ -1,14 +1,13 @@
 import gym
-from gym import envs
-import numpy as np
 import torch
-import ppo, rollout
-import ac as models 
 import core
-import argparse
+import argparse, warnings, time
+import ppo, rollout
+import numpy as np
+import ac as models 
+from gym import envs
 from mpi_tools import *
 from torch.utils.tensorboard import SummaryWriter
-import warnings
 
 warnings.filterwarnings("ignore")
 
@@ -16,8 +15,9 @@ all_envs = envs.registry.all()
 envs_ = sorted([env_spec.id for env_spec in all_envs])
 logger = core.Logger()
 
-def run(epochs, env_idx=0):
-    writer = SummaryWriter()
+def run_ppo(epochs, env_idx=0):
+    prefix = f'({args.env})-s{args.seed}-cpu{args.cpu}-com{args.comm}{"-avg" if args.avg_params else ""}'
+    writer = SummaryWriter(log_dir=f'runs/{prefix}-{time.monotonic()//60}')
     setup_pytorch_for_mpi()
     seed = args.seed + 1000 * proc_id()
 
@@ -39,8 +39,8 @@ def run(epochs, env_idx=0):
     pi_optim = torch.optim.Adam(ac.actor.parameters(), lr=pi_lr, eps=1e-5)
     vf_optim = torch.optim.Adam(ac.critic.parameters(), lr=vf_lr, eps=1e-5)
 
-    exp_dir = f'reward/{args.experiment}-env\"{args.env}\"-seed{args.seed}-cpu{args.cpu}-comm{args.comm}{"-pa" if args.avg_params else ""}'
     total_steps = 0
+    comm_calls = 0
     for e in range(epochs):
         # get trajectory
         traj, steps_taken = rollout.rollout(ac, env, 
@@ -48,7 +48,7 @@ def run(epochs, env_idx=0):
         total_steps += steps_taken
 
         # update with trajectory
-        ppo.ppo_clip(
+        info = ppo.ppo_clip(
         ac, traj,
         pi_optim, vf_optim,
         targ_kl=args.targ_kl,
@@ -61,13 +61,11 @@ def run(epochs, env_idx=0):
         if args.avg_params and (e+1) % args.comm == 0:
           # reached communication point -> avg parameters (after update)
           mpi_avg_params(ac)
-          sync_params(ac)
-        
-        returns=mpi_avg(traj["rew"].sum())
-        writer.add_scalar(exp_dir, returns, mpi_sum(total_steps)) 
 
-        if e==epochs-1 and proc_id()==0:
-          reward = core.validate(ac, env_name, render=True).sum()
+        if e % args.val_freq == 0:
+          returns = mpi_avg(core.validate( ac, env_name, timeout=args.max_len, render=False, seed=args.seed+2000*proc_id() ).sum())
+          # rewards per steps
+          writer.add_scalar('returns', returns, mpi_sum(total_steps)) 
 
     writer.close()
 
@@ -89,16 +87,15 @@ if __name__ == "__main__":
     parser.add_argument("--lam", type=float, default=.97)
 
     parser.add_argument("--env", type=str, default="CartPole-v1")
-    parser.add_argument("--experiment", type=str, default="exp")
-    parser.add_argument("--val_every", type=int, default=10)
-    parser.add_argument("--val_rollouts", type=int, default=5)
+    parser.add_argument("--val_freq", type=int, default=2)
+    # parser.add_argument("--val_rollouts", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
 
     parser.add_argument("--cpu", type=int, default=8)
     parser.add_argument("--comm", type=int, default=1)
     parser.add_argument("--avg_params", action="store_true")
 
-    parser.add_argument("--render", action="store_true")
+    # parser.add_argument("--render", action="store_true")
     parser.add_argument("--env_list", action="store_true")
     args = parser.parse_args()
 
@@ -106,7 +103,6 @@ if __name__ == "__main__":
       print(envs_)
 
     mpi_fork(args.cpu)
-
-    run(epochs=args.epochs, env_idx=envs_.index(args.env))
+    run_ppo(epochs=args.epochs, env_idx=envs_.index(args.env))
 
 
