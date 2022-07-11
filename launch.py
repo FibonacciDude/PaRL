@@ -40,7 +40,6 @@ def run_ppo(epochs, env_idx=0):
     vf_optim = torch.optim.Adam(ac.critic.parameters(), lr=vf_lr, eps=1e-5)
 
     total_steps = 0
-    comm_calls = 0
     for e in range(epochs):
         # get trajectory
         traj, steps_taken = rollout.rollout(ac, env, 
@@ -48,7 +47,7 @@ def run_ppo(epochs, env_idx=0):
         total_steps += steps_taken
 
         # update with trajectory
-        info = ppo.ppo_clip(
+        ppo.ppo_clip(
         ac, traj,
         pi_optim, vf_optim,
         targ_kl=args.targ_kl,
@@ -59,7 +58,7 @@ def run_ppo(epochs, env_idx=0):
         )
 
         if args.avg_params and (e+1) % args.comm == 0:
-          # reached communication point -> avg parameters (after update)
+          # reached communication point -> avg parameters (after one ppo update)
           mpi_avg_params(ac)
 
         if e % args.val_freq == 0:

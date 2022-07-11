@@ -33,14 +33,10 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01
     for _ in range(pi_iters):
         pi_optim.zero_grad()
         loss_a, pi_kl = pi_loss(ac, traj, eps)
-        if avg_grad:
-          pi_kl = mpi_avg(pi_kl)
-        if pi_kl > 1.5 * targ_kl:
-            # print("Finished due to too great of a KL %d" % _) # put this in log
-            break
+        if avg_grad: pi_kl = mpi_avg(pi_kl)
+        if pi_kl > 1.5 * targ_kl: break
         loss_a.backward()
-        if avg_grad:
-          mpi_avg_grads(ac.actor)
+        if avg_grad: mpi_avg_grads(ac.actor)
         pi_optim.step()
 
     vf_old = vf_loss(ac, traj)
@@ -48,35 +44,5 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01
         vf_optim.zero_grad()
         loss_c = vf_loss(ac, traj)
         loss_c.backward()
-        if avg_grad:
-          mpi_avg_grads(ac.critic)
-        vf_optim.step()
-
-def ppo_clip_ea(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01, eps=.2, gamma=.99, lam=.95, avg_grad=True):
-
-    core.gae(traj, gamma, lam, avg_grad)
-    if avg_grad:
-      sync_params(ac)
-
-    pi_old, kl_old = pi_loss(ac, traj)
-    for _ in range(pi_iters):
-        pi_optim.zero_grad()
-        loss_a, pi_kl = pi_loss(ac, traj)
-        if avg_grad:
-          pi_kl = mpi_avg(pi_kl)
-        if pi_kl > 1.5 * targ_kl:
-            # print("Finished due to too great of a KL %d" % _) # put this in log
-            break
-        loss_a.backward()
-        if avg_grad:
-          mpi_avg_grads(ac.actor)
-        pi_optim.step()
-
-    vf_old = vf_loss(ac, traj)
-    for _ in range(vf_iters):
-        vf_optim.zero_grad()
-        loss_c = vf_loss(ac, traj)
-        loss_c.backward()
-        if avg_grad:
-          mpi_avg_grads(ac.critic)
+        if avg_grad: mpi_avg_grads(ac.critic)
         vf_optim.step()
