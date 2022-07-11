@@ -2,6 +2,7 @@ from mpi4py import MPI
 import os, subprocess, sys
 import numpy as np
 import torch
+import copy
 
 # -------------- mpi functions ----------------
 # from spinning-up: https://github.com/openai/spinningup/blob/038665d62d569055401d91856abb287263096178/spinup/utils/mpi_tools.py#L56
@@ -117,6 +118,23 @@ def mpi_avg_params(module):
         avg_p = mpi_avg(p.data)
         # all the elements in the array become a copy of the other (not the reference)
         p_numpy[:] = avg_p[:]
+
+def mpi_avg_params_ac(module):
+    if num_procs()==1:
+        return module
+    module_cp = copy.deepcopy(module)
+    for (cp, p) in zip(module_cp.parameters(), module.parameters()):
+        p_numpy = p.data.numpy()
+        cp_numpy = cp.data.numpy()
+        avg_p = mpi_avg(p.data)
+        cp_numpy[:] = avg_p[:]
+    return module_cp
+
+def mpi_inplace_add(amod, bmod, consts=(1,1)):
+    for (ap, bp) in zip(amod.parameters(), bmod.parameters()):
+        a_numpy = ap.data.numpy()
+        b_numpy = bp.data.numpy()
+        a_numpy[:] = a_numpy*consts[0] + b_numpy*consts[1]
 
 def sync_params(module):
     """ Sync all parameters of module across all MPI processes. """
