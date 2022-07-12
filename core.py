@@ -76,3 +76,9 @@ def validate(ac, env_name, timeout=500, render=True, seed=42):
     env.reset()
     env.close()
     return np.array(rews)
+    
+# --------- torch ----------
+def change_lr(optim, lr):
+  for g in optim.param_groups:
+      g['lr'] = lr
+

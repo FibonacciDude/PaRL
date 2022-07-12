@@ -21,6 +21,7 @@ class Actor(nn.Module):
             self.mean = nn.Linear(hidden_dim, action_dim)
             # as parameter, not based on input
             self.log_std = torch.nn.Parameter(  torch.as_tensor( -.5*np.ones(action_dim, dtype=np.float32) )  )
+            #self.sqrt_std = torch.nn.Parameter(  torch.as_tensor( -np.ones(action_dim, dtype=np.float32) )  )
 
     def _get_distr(self, obs):
       scores = self.actor_mlp(obs)
@@ -28,6 +29,7 @@ class Actor(nn.Module):
         xx = dist.Categorical(self.head(scores))
       else:
         xx = dist.Normal(self.mean(scores), self.log_std.exp())
+        #xx = dist.Normal(self.mean(scores), .5 * self.sqrt_std.square())
       return xx
 
     def pi(self, obs):

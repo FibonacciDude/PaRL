@@ -24,7 +24,7 @@ def vf_loss(ac, traj):
 
 
 def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01, eps=.2, gamma=.99, lam=.95, avg_grad=True):
-
+    gradclip=4
     core.gae(traj, gamma, lam, avg_grad)
     if avg_grad:
       sync_params(ac)
@@ -34,8 +34,10 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01
         pi_optim.zero_grad()
         loss_a, pi_kl = pi_loss(ac, traj, eps)
         if avg_grad: pi_kl = mpi_avg(pi_kl)
-        if pi_kl > 1.5 * targ_kl: break
+        if pi_kl > 1.5 * targ_kl:
+          break
         loss_a.backward()
+        torch.nn.clip_grad_norm_(ac.actor.parameters(), gradclip)
         if avg_grad: mpi_avg_grads(ac.actor)
         pi_optim.step()
 
@@ -44,5 +46,8 @@ def ppo_clip(ac, traj, pi_optim, vf_optim, pi_iters=80, vf_iters=80, targ_kl=.01
         vf_optim.zero_grad()
         loss_c = vf_loss(ac, traj)
         loss_c.backward()
-        if avg_grad: mpi_avg_grads(ac.critic)
+        torch.nn.clip_grad_norm_(ac.critic.parameters(), gradclip)
+        # if avg_grad:
+        # average value function always
+        mpi_avg_grads(ac.critic)
         vf_optim.step()
