@@ -87,6 +87,7 @@ def run_ppo(epochs, env_idx=0):
               ).sum()
             )
           # rewards per steps
+          # returns = mpi_avg(traj['ret'].sum()) # much faster
           writer.add_scalar('returns', returns, mpi_sum(total_steps)) 
           if not categorical:
             std = mpi_avg(module.actor.log_std.exp().mean().item())
